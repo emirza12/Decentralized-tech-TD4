@@ -30,15 +30,20 @@ async function closeAllServers(
     typeof http.ServerResponse
   >[]
 ) {
-  await Promise.all(
-    servers.map((server) =>
+  const closePromises = servers.map((server) => {
+    return new Promise<void>((resolve) => {
       server.close(() => {
         server.closeAllConnections();
-      })
-    )
-  );
+        resolve();
+      });
+    });
+  });
 
-  await delay(100);
+  await Promise.all(closePromises);
+  
+  servers.length = 0;
+  
+  await delay(500);
 }
 
 async function sendMessage(
@@ -143,7 +148,10 @@ describe("Onion Routing", () => {
       });
 
       it("Can start 1 node and 1 user", async () => {
-        servers = await launchNetwork(1, 1);
+        servers = (await launchNetwork(1, 1)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
 
         const isNodeLive = await fetch(
           `http://localhost:${BASE_ONION_ROUTER_PORT + 0}/status`
@@ -163,7 +171,10 @@ describe("Onion Routing", () => {
       });
 
       it("Can start 10 node and 2 user", async () => {
-        servers = await launchNetwork(10, 2);
+        servers = (await launchNetwork(10, 2)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
 
         for (let index = 0; index < 10; index++) {
           const isNodeLive = await fetch(
@@ -187,7 +198,10 @@ describe("Onion Routing", () => {
       });
 
       it("Can start 2 node and 10 user", async () => {
-        servers = await launchNetwork(2, 10);
+        servers = (await launchNetwork(2, 10)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
 
         for (let index = 0; index < 2; index++) {
           const isNodeLive = await fetch(
@@ -211,7 +225,10 @@ describe("Onion Routing", () => {
       });
 
       it("The registry exists", async () => {
-        servers = await launchNetwork(2, 10);
+        servers = (await launchNetwork(2, 10)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
 
         const isRegistryLive = await fetch(
           `http://localhost:${REGISTRY_PORT}/status`
@@ -227,7 +244,10 @@ describe("Onion Routing", () => {
       const servers: http.Server[] = [];
 
       beforeAll(async () => {
-        const _servers = await launchNetwork(10, 2);
+        const _servers = (await launchNetwork(10, 2)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
         servers.push(..._servers);
       });
 
@@ -290,7 +310,10 @@ describe("Onion Routing", () => {
       const servers: http.Server[] = [];
 
       beforeAll(async () => {
-        const _servers = await launchNetwork(10, 2);
+        const _servers = (await launchNetwork(10, 2)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
         servers.push(..._servers);
       });
 
@@ -362,7 +385,10 @@ describe("Onion Routing", () => {
       const servers: http.Server[] = [];
 
       beforeAll(async () => {
-        const _servers = await launchNetwork(10, 2);
+        const _servers = (await launchNetwork(10, 2)) as http.Server<
+          typeof http.IncomingMessage,
+          typeof http.ServerResponse
+        >[];
         servers.push(..._servers);
       });
 
@@ -521,7 +547,10 @@ describe("Onion Routing", () => {
     const servers: http.Server[] = [];
 
     beforeAll(async () => {
-      const _servers = await launchNetwork(10, 2);
+      const _servers = (await launchNetwork(10, 2)) as http.Server<
+        typeof http.IncomingMessage,
+        typeof http.ServerResponse
+      >[];
       servers.push(..._servers);
     });
 
@@ -690,7 +719,10 @@ describe("Onion Routing", () => {
     const servers: http.Server[] = [];
 
     beforeAll(async () => {
-      const _servers = await launchNetwork(10, 2);
+      const _servers = (await launchNetwork(10, 2)) as http.Server<
+        typeof http.IncomingMessage,
+        typeof http.ServerResponse
+      >[];
       servers.push(..._servers);
     });
 
