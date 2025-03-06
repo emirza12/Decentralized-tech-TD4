@@ -7,19 +7,19 @@ export async function launchNetwork(nbNodes: number, nbUsers: number) {
     // launch node registry
     const registry = await launchRegistry();
     
-    // Attendre que le registre soit prêt
+    // Wait for the registry to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // launch all nodes
     const onionServers = await launchOnionRouters(nbNodes);
     
-    // Attendre que les nœuds s'enregistrent
+    // Wait for nodes to register
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     // launch all users
     const userServers = await launchUsers(nbUsers);
     
-    // Attendre que les utilisateurs soient prêts
+    // Wait for users to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     return [registry, ...onionServers, ...userServers];

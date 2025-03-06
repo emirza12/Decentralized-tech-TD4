@@ -18,33 +18,33 @@ export async function launchRegistry() {
   _registry.use(express.json());
   _registry.use(bodyParser.json());
 
-  // Stockage des nœuds enregistrés
+  // Storage for registered nodes
   const registeredNodes: Node[] = [];
 
-  // Implémentation de la route /status
+  // Implementation of the /status route
   _registry.get("/status", (req, res) => {
     res.send("live");
   });
 
-  // Route pour enregistrer un nœud
+  // Route to register a node
   _registry.post("/registerNode", (req, res) => {
     const { nodeId, pubKey }: RegisterNodeBody = req.body;
     
-    // Vérifier si le nœud existe déjà
+    // Check if the node already exists
     const existingNodeIndex = registeredNodes.findIndex(node => node.nodeId === nodeId);
     
     if (existingNodeIndex !== -1) {
-      // Mettre à jour le nœud existant
+      // Update the existing node
       registeredNodes[existingNodeIndex] = { nodeId, pubKey };
     } else {
-      // Ajouter un nouveau nœud
+      // Add a new node
       registeredNodes.push({ nodeId, pubKey });
     }
     
     res.status(200).send();
   });
 
-  // Route pour récupérer la liste des nœuds
+  // Route to retrieve the list of nodes
   _registry.get("/getNodeRegistry", (req, res) => {
     const response: GetNodeRegistryBody = {
       nodes: registeredNodes
@@ -52,7 +52,7 @@ export async function launchRegistry() {
     res.json(response);
   });
 
-  // Modifier la création du serveur pour gérer les erreurs de port déjà utilisé
+  // Modify server creation to handle port already in use
   return new Promise((resolve, reject) => {
     const server = _registry.listen(REGISTRY_PORT, () => {
       console.log(`Registry is listening on port ${REGISTRY_PORT}`);

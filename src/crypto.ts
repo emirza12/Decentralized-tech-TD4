@@ -159,14 +159,14 @@ export async function symEncrypt(
   symKey: webcrypto.CryptoKey,
   data: string
 ): Promise<string> {
-  // Générer un vecteur d'initialisation (IV) aléatoire
+  // Generate a random initialization vector (IV)
   const iv = webcrypto.getRandomValues(new Uint8Array(16));
   
-  // Convertir les données en ArrayBuffer
+  // Convert data to ArrayBuffer
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(data);
   
-  // Chiffrer les données
+  // Encrypt the data
   const encryptedBuffer = await webcrypto.subtle.encrypt(
     {
       name: "AES-CBC",
@@ -176,12 +176,12 @@ export async function symEncrypt(
     dataBuffer
   );
   
-  // Concaténer l'IV et les données chiffrées
+  // Concatenate the IV and encrypted data
   const encryptedArray = new Uint8Array(iv.length + encryptedBuffer.byteLength);
   encryptedArray.set(iv, 0);
   encryptedArray.set(new Uint8Array(encryptedBuffer), iv.length);
   
-  // Convertir en base64
+  // Convert to base64
   return arrayBufferToBase64(encryptedArray.buffer);
 }
 
@@ -190,18 +190,18 @@ export async function symDecrypt(
   symKeyStr: string,
   encryptedData: string
 ): Promise<string> {
-  // Importer la clé symétrique
+  // Import the symmetric key
   const key = await importSymKey(symKeyStr);
   
-  // Convertir de base64 à ArrayBuffer
+  // Convert from base64 to ArrayBuffer
   const encryptedBuffer = base64ToArrayBuffer(encryptedData);
   const encryptedArray = new Uint8Array(encryptedBuffer);
   
-  // Extraire l'IV (16 premiers octets) et les données chiffrées
+  // Extract the IV (first 16 bytes) and the encrypted data
   const iv = encryptedArray.slice(0, 16);
   const ciphertext = encryptedArray.slice(16);
   
-  // Déchiffrer les données
+  // Decrypt the data
   const decryptedBuffer = await webcrypto.subtle.decrypt(
     {
       name: "AES-CBC",
@@ -211,7 +211,7 @@ export async function symDecrypt(
     ciphertext
   );
   
-  // Convertir le résultat en chaîne
+  // Convert the result to string
   const decoder = new TextDecoder();
   return decoder.decode(decryptedBuffer);
 }

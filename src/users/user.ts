@@ -19,7 +19,7 @@ export type Node = {
   pubKey: string;
 };
 
-// Déclaration pour le compteur d'utilisation des nœuds
+// Declaration for node usage counter
 declare global {
   var nodeUsageCount: Record<number, number>;
 }
@@ -29,12 +29,12 @@ export async function user(userId: number) {
   _user.use(express.json());
   _user.use(bodyParser.json());
 
-  // Variables pour stocker les informations des messages
+  // Variables for storing message information
   let lastReceivedMessage: string | null = null;
   let lastSentMessage: string | null = null;
   let lastCircuit: number[] | null = null;
 
-  // Fonction pour obtenir la liste des nœuds depuis le registre
+  // Function to get the list of nodes from the registry
   async function getNodesFromRegistry(): Promise<Node[]> {
     return new Promise((resolve, reject) => {
       http.get(`http://localhost:${REGISTRY_PORT}/getNodeRegistry`, (res) => {
@@ -54,55 +54,55 @@ export async function user(userId: number) {
     });
   }
 
-  // Fonction pour créer un circuit aléatoire de 3 nœuds distincts
+  // Function to create a random circuit of 3 distinct nodes
   async function createRandomCircuit(): Promise<Node[]> {
     const nodes = await getNodesFromRegistry();
     
-    // Vérifier qu'il y a suffisamment de nœuds
+    // Check if there are enough nodes
     if (nodes.length === 0) {
-      throw new Error(`Aucun nœud disponible dans le registre.`);
+      throw new Error(`No nodes available in the registry.`);
     }
     
-    // Si moins de 3 nœuds sont disponibles, dupliquer les nœuds existants
+    // If less than 3 nodes are available, duplicate existing nodes
     const availableNodes = [...nodes];
     while (availableNodes.length < 3) {
       availableNodes.push(nodes[0]);
     }
     
-    // Utiliser un algorithme de sélection plus équilibré
-    // Nous allons sélectionner les nœuds avec une probabilité inversement proportionnelle
-    // à leur fréquence d'utilisation précédente
+    // Use a more balanced selection algorithm
+    // We will select nodes with a probability inversely proportional
+    // to their previous usage frequency
     
-    // Initialiser un compteur d'utilisation pour chaque nœud s'il n'existe pas déjà
+    // Initialize a usage counter for each node if it doesn't already exist
     if (!global.nodeUsageCount) {
       global.nodeUsageCount = {};
     }
     
-    // Calculer le score pour chaque nœud (inversement proportionnel à son utilisation)
+    // Calculate the score for each node (inversely proportional to its usage)
     const nodeScores = availableNodes.map(node => {
       const usageCount = global.nodeUsageCount[node.nodeId] || 0;
-      // Plus le nœud a été utilisé, plus son score est bas
+      // The more the node has been used, the lower its score
       return { node, score: 1 / (usageCount + 1) };
     });
     
-    // Sélectionner 3 nœuds en fonction de leur score
+    // Select 3 nodes based on their score
     const selectedNodes: Node[] = [];
     for (let i = 0; i < 3; i++) {
-      // S'il n'y a pas assez de nœuds uniques, permettre la réutilisation
+      // If there aren't enough unique nodes, allow reuse
       const availableForSelection = nodes.length < 3 
         ? nodeScores 
         : nodeScores.filter(item => !selectedNodes.includes(item.node));
       
       if (availableForSelection.length === 0) {
-        // Si tous les nœuds ont été sélectionnés mais qu'il en faut plus, réutiliser
+        // If all nodes have been selected but more are needed, reuse
         selectedNodes.push(nodes[0]);
         continue;
       }
       
-      // Calculer la somme totale des scores
+      // Calculate the total score
       const totalScore = availableForSelection.reduce((sum, item) => sum + item.score, 0);
       
-      // Sélectionner un nœud aléatoirement en fonction de son score
+      // Select a node randomly based on its score
       let randomValue = Math.random() * totalScore;
       let selectedNode: Node | null = null;
       
@@ -114,15 +114,15 @@ export async function user(userId: number) {
         }
       }
       
-      // Si aucun nœud n'a été sélectionné (cas rare), prendre le premier disponible
+      // If no node was selected (rare case), take the first available
       if (!selectedNode) {
         selectedNode = availableForSelection[0]?.node || nodes[0];
       }
       
-      // Ajouter le nœud sélectionné au circuit
+      // Add the selected node to the circuit
       selectedNodes.push(selectedNode);
       
-      // Incrémenter le compteur d'utilisation pour ce nœud
+      // Increment the usage counter for this node
       global.nodeUsageCount[selectedNode.nodeId] = (global.nodeUsageCount[selectedNode.nodeId] || 0) + 1;
     }
     
@@ -132,12 +132,12 @@ export async function user(userId: number) {
     return selectedNodes;
   }
 
-  // Fonction pour formater la destination avec des zéros
+  // Function to format the destination with zeros
   function formatDestination(port: number): string {
     return port.toString().padStart(10, '0');
   }
 
-  // Fonction pour créer une couche d'encryption
+  // Function to create an encryption layer
   async function createEncryptionLayer(
     message: string,
     symKey: webcrypto.CryptoKey,
@@ -147,28 +147,28 @@ export async function user(userId: number) {
     try {
       console.log(`User ${userId} creating encryption layer for destination: ${nextDestination}`);
       
-      // S'assurer que le message est une chaîne de caractères, même s'il est vide
+      // Ensure the message is a string, even if it's empty
       const safeMessage = message === null || message === undefined ? "" : message;
       
-      // Formater la destination sur 10 caractères
+      // Format the destination to 10 characters
       const destinationStr = formatDestination(nextDestination);
       
-      // (1) Concaténer la destination et le message, puis chiffrer avec la clé symétrique
+      // (1) Concatenate the destination and the message, then encrypt with the symmetric key
       const dataToEncrypt = destinationStr + safeMessage;
       console.log(`User ${userId} data to encrypt length: ${dataToEncrypt.length}`);
       
-      // Chiffrer les données avec la clé symétrique
+      // Encrypt the data with the symmetric key
       const encryptedData = await symEncrypt(symKey, dataToEncrypt);
       console.log(`User ${userId} encrypted data length: ${encryptedData.length}`);
       
-      // (2) Exporter et chiffrer la clé symétrique avec la clé publique du nœud
+      // (2) Export and encrypt the symmetric key with the node's public key
       const exportedSymKey = await exportSymKey(symKey);
       console.log(`User ${userId} exported sym key length: ${exportedSymKey.length}`);
       
       const encryptedSymKey = await rsaEncrypt(exportedSymKey, nodePubKey);
       console.log(`User ${userId} encrypted sym key length: ${encryptedSymKey.length}`);
       
-      // Concaténer (2) et (1) dans cet ordre
+      // Concatenate (2) and (1) in that order
       const result = encryptedSymKey + encryptedData;
       console.log(`User ${userId} final encrypted layer length: ${result.length}`);
       
@@ -179,7 +179,7 @@ export async function user(userId: number) {
     }
   }
 
-  // Fonction pour envoyer une requête HTTP
+  // Function to send an HTTP request
   async function sendHttpRequest(url: string, method: string, body?: any): Promise<void> {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
@@ -222,31 +222,31 @@ export async function user(userId: number) {
     });
   }
 
-  // Implémentation de la route /status
+  // Implementation of the /status route
   _user.get("/status", (req, res) => {
     res.send("live");
   });
 
-  // Route pour récupérer le dernier message reçu
+  // Route to get the last received message
   _user.get("/getLastReceivedMessage", (req, res) => {
     res.json({ result: lastReceivedMessage });
   });
 
-  // Route pour récupérer le dernier message envoyé
+  // Route to get the last sent message
   _user.get("/getLastSentMessage", (req, res) => {
     res.json({ result: lastSentMessage });
   });
 
-  // Route pour récupérer le dernier circuit utilisé
+  // Route to get the last circuit used
   _user.get("/getLastCircuit", (req, res) => {
     res.json({ result: lastCircuit });
   });
 
-  // Route pour recevoir un message
+  // Route to receive a message
   _user.post("/message", (req, res) => {
     try {
       const { message }: MessageBody = req.body;
-      // S'assurer que le message est une chaîne de caractères, même s'il est vide
+      // Ensure the message is a string, even if it's empty
       lastReceivedMessage = message === null || message === undefined ? "" : message;
       console.log(`User ${userId} received message: "${lastReceivedMessage}"`);
       res.status(200).send("success");
@@ -257,48 +257,48 @@ export async function user(userId: number) {
     }
   });
 
-  // Route pour envoyer un message
+  // Route to send a message
   _user.post("/sendMessage", async (req, res) => {
     try {
       const { message, destinationUserId }: SendMessageBody = req.body;
       
-      // Edge case 1: Message vide
+      // Edge case 1: Empty message
       const safeMessage = message === null || message === undefined ? "" : message;
       lastSentMessage = safeMessage;
       
-      // Edge case 2: Destination invalide
+      // Edge case 2: Invalid destination
       const safeDestinationUserId = typeof destinationUserId === 'number' && !isNaN(destinationUserId) 
         ? destinationUserId 
-        : 0; // Utiliser l'utilisateur 0 comme destination par défaut
+        : 0; // Use user 0 as default destination
       
       console.log(`User ${userId} sending message "${safeMessage}" to user ${safeDestinationUserId}`);
 
-      // Obtenir la liste des nœuds depuis le registre
+      // Get the list of nodes from the registry
       const nodes = await getNodesFromRegistry();
       console.log(`User ${userId} got ${nodes.length} nodes from registry`);
       
-      // Edge case 3: Pas assez de nœuds
+      // Edge case 3: Not enough nodes
       if (nodes.length < 3) {
         console.warn(`Not enough nodes in registry. Found ${nodes.length}, need at least 3. Using available nodes multiple times.`);
-        // Dupliquer les nœuds existants pour atteindre 3
+        // Duplicate existing nodes to reach 3
         while (nodes.length < 3) {
           nodes.push(nodes[0]);
         }
       }
       
-      // Créer un circuit aléatoire de 3 nœuds distincts
+      // Create a random circuit of 3 distinct nodes
       const circuit = await createRandomCircuit();
 
-      // Générer une clé symétrique unique pour chaque nœud
+      // Generate a unique symmetric key for each node
       const symKeys = await Promise.all(
         circuit.map(() => createRandomSymmetricKey())
       );
       console.log(`User ${userId} generated ${symKeys.length} symmetric keys`);
 
-      // Destination finale (l'utilisateur destinataire)
+      // Final destination (the recipient user)
       let finalDestination = BASE_USER_PORT + safeDestinationUserId;
       
-      // Edge case 4: Message très long, le tronquer si nécessaire
+      // Edge case 4: Very long message, truncate if necessary
       let currentMessage = safeMessage;
       if (currentMessage.length > 10000) {
         console.warn(`Message too long (${currentMessage.length} chars), truncating to 10000 chars`);
@@ -307,7 +307,7 @@ export async function user(userId: number) {
       
       console.log(`User ${userId} final destination: ${finalDestination}`);
 
-      // Créer les couches d'encryption en commençant par la dernière
+      // Create encryption layers starting from the last one
       for (let i = circuit.length - 1; i >= 0; i--) {
         const nextDestination = i === circuit.length - 1 
           ? finalDestination 
@@ -323,7 +323,7 @@ export async function user(userId: number) {
         );
       }
 
-      // Envoyer le message au premier nœud du circuit
+      // Send the message to the first node in the circuit
       const entryNodePort = BASE_ONION_ROUTER_PORT + circuit[0].nodeId;
       console.log(`User ${userId} sending encrypted message to entry node at port ${entryNodePort}`);
       
@@ -333,7 +333,7 @@ export async function user(userId: number) {
         { message: currentMessage }
       );
       
-      // Envoyer directement le message à l'utilisateur destinataire (pour les tests)
+      // Send the message directly to the recipient user (for tests)
       await sendHttpRequest(
         `http://localhost:${finalDestination}/message`,
         'POST',
@@ -349,37 +349,37 @@ export async function user(userId: number) {
     }
   });
 
-  // Route de test pour le chiffrement RSA et symétrique
+  // Test route for RSA and symmetric encryption
   _user.get("/testEncryption", async (req, res) => {
     try {
       console.log("Testing encryption...");
       
-      // Tester le chiffrement RSA
+      // Test RSA encryption
       const { publicKey, privateKey } = await generateRsaKeyPair();
       const exportedPubKey = await exportPubKey(publicKey);
       const exportedPrivKey = await exportPrvKey(privateKey);
       
-      // Tester avec un message normal
+      // Test with a normal message
       const testMessage = "Test message";
       const encryptedRsa = await rsaEncrypt(Buffer.from(testMessage).toString('base64'), exportedPubKey);
       const decryptedRsa = await rsaDecrypt(encryptedRsa, privateKey);
       const decodedRsa = Buffer.from(decryptedRsa, 'base64').toString();
       
-      // Tester avec un message vide
+      // Test with an empty message
       const emptyMessage = "";
       const encryptedEmptyRsa = await rsaEncrypt(Buffer.from(emptyMessage).toString('base64'), exportedPubKey);
       const decryptedEmptyRsa = await rsaDecrypt(encryptedEmptyRsa, privateKey);
       const decodedEmptyRsa = Buffer.from(decryptedEmptyRsa, 'base64').toString();
       
-      // Tester le chiffrement symétrique
+      // Test symmetric encryption
       const symKey = await createRandomSymmetricKey();
       const exportedSymKey = await exportSymKey(symKey);
       
-      // Tester avec un message normal
+      // Test with a normal message
       const encryptedSym = await symEncrypt(symKey, testMessage);
       const decryptedSym = await symDecrypt(exportedSymKey, encryptedSym);
       
-      // Tester avec un message vide
+      // Test with an empty message
       const encryptedEmptySym = await symEncrypt(symKey, emptyMessage);
       const decryptedEmptySym = await symDecrypt(exportedSymKey, encryptedEmptySym);
       
@@ -412,7 +412,7 @@ export async function user(userId: number) {
     }
   });
 
-  // Modifier la création du serveur pour gérer les erreurs de port déjà utilisé
+  // Modify server creation to handle port already in use
   return new Promise((resolve, reject) => {
     const server = _user.listen(BASE_USER_PORT + userId, () => {
       console.log(`User ${userId} is listening on port ${BASE_USER_PORT + userId}`);

@@ -14,17 +14,17 @@ export async function simpleOnionRouter(nodeId: number) {
   onionRouter.use(express.json());
   onionRouter.use(bodyParser.json());
 
-  // Variables pour stocker les informations du dernier message
+  // Variables to store information from the last received message
   let lastReceivedEncryptedMessage: string | null = null;
   let lastReceivedDecryptedMessage: string | null = null;
   let lastMessageDestination: number | null = null;
 
-  // Génération des clés RSA
+  // Generate RSA keys
   const { publicKey, privateKey } = await generateRsaKeyPair();
   const exportedPubKey = await exportPubKey(publicKey);
   const exportedPrivKey = await exportPrvKey(privateKey);
 
-  // Enregistrer le nœud auprès du registre
+  // Register the node with the registry
   try {
     const registerNodeBody = {
       nodeId: nodeId,
@@ -57,25 +57,25 @@ export async function simpleOnionRouter(nodeId: number) {
     console.error(`Failed to register node ${nodeId}:`, error);
   }
 
-  // Fonction pour déchiffrer un message et extraire la destination
+  // Function to decrypt a message and extract the destination
   async function decryptMessageLayer(encryptedMessage: string): Promise<{ destination: number; message: string }> {
     try {
       console.log(`Node ${nodeId} decrypting message layer...`);
       
-      // Edge case 1: Message vide ou trop court
+      // Edge case 1: Empty or too short message
       if (!encryptedMessage || encryptedMessage.length < 344) {
         console.error(`Node ${nodeId} received invalid encrypted message: ${encryptedMessage}`);
         return { destination: BASE_ONION_ROUTER_PORT + 1, message: "" };
       }
       
-      // Les 344 premiers caractères sont la clé symétrique chiffrée avec RSA
+      // The first 344 characters are the symmetric key encrypted with RSA
       const encryptedSymKey = encryptedMessage.slice(0, 344);
       const encryptedData = encryptedMessage.slice(344);
       
       console.log(`Node ${nodeId} encrypted sym key length: ${encryptedSymKey.length}`);
       console.log(`Node ${nodeId} encrypted data length: ${encryptedData.length}`);
       
-      // Déchiffrer la clé symétrique avec la clé privée RSA
+      // Decrypt the symmetric key with the RSA private key
       let symKeyStr;
       try {
         symKeyStr = await rsaDecrypt(encryptedSymKey, privateKey);
@@ -85,7 +85,7 @@ export async function simpleOnionRouter(nodeId: number) {
         return { destination: BASE_ONION_ROUTER_PORT + 1, message: "" };
       }
       
-      // Déchiffrer le message avec la clé symétrique
+      // Decrypt the message with the symmetric key
       let decryptedData;
       try {
         decryptedData = await symDecrypt(symKeyStr, encryptedData);
@@ -95,16 +95,16 @@ export async function simpleOnionRouter(nodeId: number) {
         return { destination: BASE_ONION_ROUTER_PORT + 1, message: "" };
       }
       
-      // Edge case 2: Données déchiffrées invalides
+      // Edge case 2: Invalid decrypted data
       if (!decryptedData || decryptedData.length < 10) {
         console.error(`Node ${nodeId} decrypted invalid data: ${decryptedData}`);
         return { destination: BASE_ONION_ROUTER_PORT + 1, message: "" };
       }
       
-      // Extraire la destination (10 premiers caractères) et le message
+      // Extract the destination (first 10 characters) and the message
       const destinationStr = decryptedData.slice(0, 10);
       
-      // Edge case 3: Destination invalide
+      // Edge case 3: Invalid destination
       let destination;
       try {
         destination = parseInt(destinationStr);
@@ -125,7 +125,7 @@ export async function simpleOnionRouter(nodeId: number) {
       return { destination, message };
     } catch (error) {
       console.error(`Error decrypting message in node ${nodeId}:`, error);
-      // En cas d'erreur, renvoyer une destination par défaut et un message vide
+      // In case of error, return a default destination and an empty message
       return { destination: BASE_ONION_ROUTER_PORT + 1, message: "" };
     }
   }
@@ -151,29 +151,29 @@ export async function simpleOnionRouter(nodeId: number) {
     res.json({ result: exportedPrivKey });
   });
 
-  // Route pour recevoir et transférer un message
+  // Route to receive and forward a message
   onionRouter.post("/message", async (req, res) => {
     try {
       const { message }: MessageBody = req.body;
       
-      // S'assurer que le message est une chaîne de caractères, même s'il est vide
+      // Ensure the message is a string, even if it's empty
       const safeMessage = message === null || message === undefined ? "" : message;
       
       console.log(`Node ${nodeId} received encrypted message of length: ${safeMessage.length}`);
       
-      // Stocker le message chiffré reçu
+      // Store the received encrypted message
       lastReceivedEncryptedMessage = safeMessage;
       
-      // Déchiffrer la couche et obtenir la destination et le message
+      // Decrypt the layer and get the destination and message
       const { destination, message: decryptedMessage } = await decryptMessageLayer(safeMessage);
       
-      // Stocker le message déchiffré et la destination
+      // Store the decrypted message and destination
       lastReceivedDecryptedMessage = decryptedMessage;
       lastMessageDestination = destination;
       
       console.log(`Node ${nodeId} will forward message to destination: ${destination}`);
       
-      // Transférer le message à la destination
+      // Forward the message to the destination
       await new Promise<void>((resolve, reject) => {
         const req2 = http.request({
           hostname: 'localhost',
