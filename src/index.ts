@@ -5,6 +5,7 @@ import http from "http";
 
 export async function launchNetwork(nbNodes: number, nbUsers: number): Promise<http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>[]> {
   try {
+    
     // launch node registry
     const registry = await launchRegistry();
     
